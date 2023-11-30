@@ -1,0 +1,106 @@
+import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import {
+  InstanceProfile,
+  ManagedPolicy,
+  PolicyDocument,
+  PolicyStatement,
+  Role,
+  ServicePrincipal
+} from "aws-cdk-lib/aws-iam";
+import { aws_route53 } from "aws-cdk-lib";
+
+export class WebbInfraStack extends cdk.Stack {
+  public readonly alb: elbv2.CfnLoadBalancer;
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    const vpc = ec2.Vpc.fromLookup(this, 'MyVpc', {
+      vpcId: 'vpc-0f9779e69a780c25e',
+    });
+
+    const serverRole = new Role(this, 'webb-anti-bots-backend-role', {
+      roleName: 'webb-anti-bots-backend-role',
+      assumedBy: new ServicePrincipal('ec2.amazonaws.com'),
+      inlinePolicies: {
+        ['RetentionPolicy']: new PolicyDocument({
+          statements: [
+            new PolicyStatement({
+              resources: ['*'],
+              actions: ['logs:PutRetentionPolicy'],
+            }),
+          ],
+        }),
+      },
+      managedPolicies: [
+        ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'),
+        ManagedPolicy.fromAwsManagedPolicyName('CloudWatchAgentServerPolicy'),
+      ],
+    });
+
+    new InstanceProfile(
+        this,
+        'AntiBotsInstanceProfile',
+        {
+          instanceProfileName: 'antiBots-portal-backend',
+          role: serverRole,
+          path: '/antibots-backend/',
+        },
+    );
+
+    this.alb = new elbv2.CfnLoadBalancer(this, 'ALB', {
+      name:'webbBackendALB',
+      subnets: ['subnet-075e204cb71470d70', 'subnet-0e64f859c59876536', 'subnet-0f02dd76225273efa'],
+      type: 'application',
+      securityGroups: ['sg-0676976675a94e49e'],
+      tags: [
+        {
+          key: 'Name',
+          value: 'webbBackend' + 'ALB',
+        },
+      ],
+    });
+    //route53
+    const recordSet = new aws_route53.CfnRecordSet(this, 'RecordSet', {
+      name: 'webb.portal.backend.antibots.cn.test.origins.nikecloud.com.cn',
+      type: 'CNAME',
+      aliasTarget: {
+        dnsName: this.alb.attrDnsName,
+        hostedZoneId: this.alb.attrCanonicalHostedZoneId,
+      },
+      hostedZoneId: 'Z0991920S3CK6DIBDXCL',
+    });
+
+    const certificateArn = 'arn:aws-cn:acm:cn-northwest-1:439314357471:certificate/abafe854-4af7-4037-b07c-58989e2f13f1';
+
+    const backendTargetGroup = new elbv2.CfnTargetGroup(this, 'BackendTargetGroup', {
+      vpcId: 'vpc-0f9779e69a780c25e',
+      protocol: elbv2.ApplicationProtocol.HTTP,
+      port: 3000,
+      healthCheckIntervalSeconds: 15,
+      healthCheckPath: '/api/healthcheck',
+      healthCheckProtocol: 'HTTP',
+      healthCheckTimeoutSeconds: 6,
+      healthyThresholdCount: 5,
+    });
+
+    const albListener = new elbv2.CfnListener(this, 'ALBListener', {
+      loadBalancerArn: cdk.Fn.ref(this.alb.logicalId),
+      defaultActions: [{ targetGroupArn: cdk.Fn.ref(backendTargetGroup.logicalId), type: 'forward' }],
+      protocol: elbv2.ApplicationProtocol.HTTPS,
+      port: 443,
+      certificates: [{ certificateArn: certificateArn }],
+    });
+
+    new elbv2.CfnListenerRule(this, 'ALBListenerRuleForBackend', {
+      listenerArn: albListener.attrListenerArn,
+      actions: [{ targetGroupArn: cdk.Fn.ref(backendTargetGroup.logicalId), type: 'forward' }],
+      conditions: [{ pathPatternConfig: { values: ['/api/*'] }, field: 'path-pattern' }],
+      priority: 1,
+    });
+
+
+  }
+}
