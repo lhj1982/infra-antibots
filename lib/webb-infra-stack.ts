@@ -80,7 +80,7 @@ export class WebbInfraStack extends cdk.Stack {
       protocol: elbv2.ApplicationProtocol.HTTP,
       port: 3000,
       healthCheckIntervalSeconds: 15,
-      healthCheckPath: '/api/healthcheck',
+      healthCheckPath: '/health',
       healthCheckProtocol: 'HTTP',
       healthCheckTimeoutSeconds: 6,
       healthyThresholdCount: 5,
