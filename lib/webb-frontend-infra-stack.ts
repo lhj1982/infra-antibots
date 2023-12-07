@@ -81,6 +81,7 @@ export class WebbFrontendInfraStack extends cdk.Stack {
       port: 3000,
       healthCheckIntervalSeconds: 15,
       healthCheckPort: '8077',
+      targetType: 'ip',
     });
 
     const albListener = new elbv2.CfnListener(this, 'ALBListener', {
