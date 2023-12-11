@@ -12,17 +12,30 @@ import {
 } from "aws-cdk-lib/aws-iam";
 import { aws_route53 } from "aws-cdk-lib";
 
-export class WebbInfraStack extends cdk.Stack {
+interface WebbBackendInfraStackProps extends cdk.StackProps {
+  env: object;
+  vpcId: string;
+  roleName: string;
+  albName: string;
+  subnetIds: string[];
+  securityGroupIds: string[];
+  hostedZoneId: string;
+  domainName: string;
+  subDomainName: string;
+  certificateArn: string;
+}
+
+export class WebbBackendInfraStack extends cdk.Stack {
   public readonly alb: elbv2.CfnLoadBalancer;
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props?: WebbBackendInfraStackProps) {
     super(scope, id, props);
 
     const vpc = ec2.Vpc.fromLookup(this, 'MyVpc', {
-      vpcId: 'vpc-0f9779e69a780c25e',
+      vpcId: props?.vpcId,
     });
 
     const serverRole = new Role(this, 'webb-anti-bots-backend-role', {
-      roleName: 'webb-anti-bots-backend-role',
+      roleName: props?.roleName,
       assumedBy: new ServicePrincipal('ec2.amazonaws.com'),
       inlinePolicies: {
         ['RetentionPolicy']: new PolicyDocument({
@@ -51,10 +64,10 @@ export class WebbInfraStack extends cdk.Stack {
     );
 
     this.alb = new elbv2.CfnLoadBalancer(this, 'ALB', {
-      name:'webbBackendALB',
-      subnets: ['subnet-075e204cb71470d70', 'subnet-0e64f859c59876536', 'subnet-0f02dd76225273efa'],
+      name: props?.albName,
+      subnets: props?.subnetIds,
       type: 'application',
-      securityGroups: ['sg-0676976675a94e49e'],
+      securityGroups: props?.securityGroupIds,
       tags: [
         {
           key: 'Name',
@@ -64,19 +77,18 @@ export class WebbInfraStack extends cdk.Stack {
     });
     //route53
     const recordSet = new aws_route53.CfnRecordSet(this, 'RecordSet', {
-      name: 'webb.portal.backend.antibots.cn.test.origins.nikecloud.com.cn',
-      type: 'CNAME',
+      name: props?.subDomainName + '.' + props?.domainName,
+      type: 'A',
       aliasTarget: {
         dnsName: this.alb.attrDnsName,
         hostedZoneId: this.alb.attrCanonicalHostedZoneId,
       },
-      hostedZoneId: 'Z0991920S3CK6DIBDXCL',
+      hostedZoneId: props?.hostedZoneId,
     });
 
-    const certificateArn = 'arn:aws-cn:acm:cn-northwest-1:439314357471:certificate/abafe854-4af7-4037-b07c-58989e2f13f1';
 
     const backendTargetGroup = new elbv2.CfnTargetGroup(this, 'BackendTargetGroup', {
-      vpcId: 'vpc-0f9779e69a780c25e',
+      vpcId: props?.vpcId,
       protocol: elbv2.ApplicationProtocol.HTTP,
       port: 3000,
       healthCheckIntervalSeconds: 15,
@@ -91,7 +103,7 @@ export class WebbInfraStack extends cdk.Stack {
       defaultActions: [{ targetGroupArn: cdk.Fn.ref(backendTargetGroup.logicalId), type: 'forward' }],
       protocol: elbv2.ApplicationProtocol.HTTPS,
       port: 443,
-      certificates: [{ certificateArn: certificateArn }],
+      certificates: [{ certificateArn: props?.certificateArn }],
     });
 
     new elbv2.CfnListenerRule(this, 'ALBListenerRuleForBackend', {
