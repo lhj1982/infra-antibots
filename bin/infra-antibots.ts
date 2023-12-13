@@ -28,7 +28,7 @@ const antiBotsAttrTest = {
         'id' : 'Z0991920S3CK6DIBDXCL',
         'domainName' : 'antibots.cn.test.origins.nikecloud.com.cn',
         'subDomain' : {
-            'subDomainName' : 'api.webb.portal.backend',
+            'subDomainName' : 'api.webb.portal',
             'certificateArn' : 'arn:aws-cn:acm:cn-northwest-1:439314357471:certificate/abafe854-4af7-4037-b07c-58989e2f13f1',
         }
     }

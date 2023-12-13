@@ -62,12 +62,62 @@ export class WebbBackendInfraStack extends cdk.Stack {
           path: '/antibots-backend/',
         },
     );
+    
+
+    //create abl sg
+    const albSecurityGroup = new ec2.CfnSecurityGroup(this, 'albSecurityGroup', {
+      groupDescription: 'abl webb backend Allow SSH trfaic',
+      vpcId: props?.vpcId,
+      securityGroupIngress: [ 
+        {
+          ipProtocol: 'tcp',
+          cidrIp: '0.0.0.0/0',
+          description: 'allow traffic inbound',
+          fromPort: 443,
+          toPort: 443
+        }
+      ],
+      securityGroupEgress: [
+       {
+        ipProtocol: '-1',
+        cidrIp: '0.0.0.0/0',
+        description: 'allow traffic outbound',
+        fromPort: -1,
+        toPort: -1
+       }
+      ]  
+    });
+
+    //create ec2 sg
+    const ec2SecurityGroup = new ec2.CfnSecurityGroup(this, 'ec2SecurityGroup', {
+      groupDescription: 'ec2 webb backend Allow SSH trfaic',
+      vpcId: props?.vpcId,
+      securityGroupIngress: [ 
+        {
+          ipProtocol: 'tcp',
+          sourceSecurityGroupId: albSecurityGroup.ref,
+          description: 'allow traffic inbound',
+          fromPort: 3000,
+          toPort: 3000
+        }
+      ],
+      securityGroupEgress: [
+       {
+        ipProtocol: '-1',
+        cidrIp: '0.0.0.0/0',
+        description: 'allow traffic outbound',
+        fromPort: -1,
+        toPort: -1
+       }
+      ]  
+    });
+
 
     this.alb = new elbv2.CfnLoadBalancer(this, 'ALB', {
       name: props?.albName,
       subnets: props?.subnetIds,
       type: 'application',
-      securityGroups: props?.securityGroupIds,
+      securityGroups: [albSecurityGroup.ref],
       tags: [
         {
           key: 'Name',
