@@ -18,7 +18,6 @@ interface WebbBackendInfraStackProps extends cdk.StackProps {
   roleName: string;
   albName: string;
   subnetIds: string[];
-  securityGroupIds: string[];
   hostedZoneId: string;
   domainName: string;
   subDomainName: string;
@@ -50,6 +49,7 @@ export class WebbBackendInfraStack extends cdk.Stack {
       managedPolicies: [
         ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'),
         ManagedPolicy.fromAwsManagedPolicyName('CloudWatchAgentServerPolicy'),
+        ManagedPolicy.fromAwsManagedPolicyName('SecretsManagerReadWrite'),
       ],
     });
 

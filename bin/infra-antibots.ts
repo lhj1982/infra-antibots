@@ -18,12 +18,11 @@ const antiBotsEnv = {
     }
 } as const;
 
-const antiBotsAttrTest = {
+const antiBotsBackendAttrTest = {
     'vpcId' : 'vpc-0f9779e69a780c25e',
     'roleName': 'webb-anti-bots-backend-role',
     'albName': 'webbBackendALB',
     'subnetIds' : ['subnet-075e204cb71470d70', 'subnet-0e64f859c59876536', 'subnet-0f02dd76225273efa'],
-    'securityGroupIds' : ['sg-0676976675a94e49e'],
     'hostedZoneId' : {
         'id' : 'Z0991920S3CK6DIBDXCL',
         'domainName' : 'antibots.cn.test.origins.nikecloud.com.cn',
@@ -34,27 +33,45 @@ const antiBotsAttrTest = {
     }
 }
 
+const antiBotsFrontendAttrTest = {
+    'vpcId' : 'vpc-0f9779e69a780c25e',
+    'roleName': 'webb-anti-bots-fronted-role',
+    'albName': 'webbFrontendALB',
+    'subnetIds' : ['subnet-075e204cb71470d70', 'subnet-0e64f859c59876536', 'subnet-0f02dd76225273efa'],
+    'hostedZoneId' : {
+        'id' : 'Z0991920S3CK6DIBDXCL',
+        'domainName' : 'antibots.cn.test.origins.nikecloud.com.cn',
+        'subDomain' : {
+            'subDomainName' : 'webb.portal',
+            'certificateArn' : 'arn:aws-cn:acm:cn-northwest-1:439314357471:certificate/deb8b85c-fcae-4f96-80ac-3c100e551962',
+        }
+    }
+}
 
-const devEnv = {
-    account: '439314357471',
-    region: 'cn-northwest-1',
-};
 
-new WebbBackendInfraStack(app, 'Webb-Backend-InfraStack', {
-    env: antiBotsEnv['antibots-test-cn-northwest-1'],
-    vpcId: antiBotsAttrTest.vpcId,
-    roleName: antiBotsAttrTest.roleName,
-    albName: antiBotsAttrTest.albName,
-    subnetIds: antiBotsAttrTest.subnetIds,
-    securityGroupIds: antiBotsAttrTest.securityGroupIds,
-    hostedZoneId: antiBotsAttrTest.hostedZoneId.id,
-    domainName: antiBotsAttrTest.hostedZoneId.domainName,
-    subDomainName: antiBotsAttrTest.hostedZoneId.subDomain.subDomainName,
-    certificateArn: antiBotsAttrTest.hostedZoneId.subDomain.certificateArn
-});
 
-// new WebbFrontendInfraStack(app, 'Webb-Frontend-InfraStack', {
-//     env: devEnv,
+// new WebbBackendInfraStack(app, 'Webb-Backend-InfraStack', {
+//     env: antiBotsEnv['antibots-test-cn-northwest-1'],
+//     vpcId: antiBotsBackendAttrTest.vpcId,
+//     roleName: antiBotsBackendAttrTest.roleName,
+//     albName: antiBotsBackendAttrTest.albName,
+//     subnetIds: antiBotsBackendAttrTest.subnetIds,
+//     hostedZoneId: antiBotsBackendAttrTest.hostedZoneId.id,
+//     domainName: antiBotsBackendAttrTest.hostedZoneId.domainName,
+//     subDomainName: antiBotsBackendAttrTest.hostedZoneId.subDomain.subDomainName,
+//     certificateArn: antiBotsBackendAttrTest.hostedZoneId.subDomain.certificateArn
 // });
+
+new WebbFrontendInfraStack(app, 'Webb-Frontend-InfraStack', {
+    env: antiBotsEnv['antibots-test-cn-northwest-1'],
+    vpcId: antiBotsFrontendAttrTest.vpcId,
+    roleName: antiBotsFrontendAttrTest.roleName,
+    albName: antiBotsFrontendAttrTest.albName,
+    subnetIds: antiBotsFrontendAttrTest.subnetIds,
+    hostedZoneId: antiBotsFrontendAttrTest.hostedZoneId.id,
+    domainName: antiBotsFrontendAttrTest.hostedZoneId.domainName,
+    subDomainName: antiBotsFrontendAttrTest.hostedZoneId.subDomain.subDomainName,
+    certificateArn: antiBotsFrontendAttrTest.hostedZoneId.subDomain.certificateArn
+});
 
 app.synth();
