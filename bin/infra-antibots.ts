@@ -37,7 +37,7 @@ const antiBotsFrontendAttrTest = {
     'vpcId' : 'vpc-0f9779e69a780c25e',
     'roleName': 'webb-anti-bots-fronted-role',
     'albName': 'webbFrontendALB',
-    'subnetIds' : ['subnet-075e204cb71470d70', 'subnet-0e64f859c59876536', 'subnet-0f02dd76225273efa'],
+    'subnetIds' : ['subnet-0da1766492b750893', 'subnet-06da179024e04fbbd', 'subnet-05abf20a7b7d9cfac'],
     'hostedZoneId' : {
         'id' : 'Z0991920S3CK6DIBDXCL',
         'domainName' : 'antibots.cn.test.origins.nikecloud.com.cn',

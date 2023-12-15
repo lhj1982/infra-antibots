@@ -121,6 +121,9 @@ export class WebbFrontendInfraStack extends cdk.Stack {
       healthCheckPath: '/',
       healthCheckPort: '3000',
       targetType: 'ip',
+      matcher:{
+        httpCode:'200-499',
+      }
     });
 
     const albListener = new elbv2.CfnListener(this, 'ALBListener', {
