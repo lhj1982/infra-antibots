@@ -73,6 +73,13 @@ export class WebbFrontendInfraStack extends cdk.Stack {
           description: 'allow traffic inbound',
           fromPort: 443,
           toPort: 443
+        },
+        {
+          ipProtocol: 'tcp',
+          cidrIp: '0.0.0.0/0',
+          description: 'allow custom TCP traffic',
+          fromPort: 3000,
+          toPort: 3000
         }
       ],
       securityGroupEgress: [
