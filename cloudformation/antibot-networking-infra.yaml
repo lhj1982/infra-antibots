@@ -1,0 +1,227 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >-
+  Create db subnet group
+  Create vpc peering (then allow peering connection to cidr ip of both vpc in route table)
+  Create db sg (bastian server ip visit, app vpc ip range visit)
+  Create ec2 sg (igw access)
+  Create lambda vpc sg (for allow lambda access db)
+  Stack Name: antibots-networking-infra
+
+  After stack is created, we need to manually do some updates:
+  # 1. update DBSecurityGroup and BastianServerSecurityGroup to allow sg BastianServerSecurityGroup
+  1. add peer networking id to route table of each other vpcs
+  2. update rds subnet and security group to DBSubnetGroup and DBSecurityGroup respectively
+
+Conditions:
+  IsChinaPartition: !Equals [ !Ref 'AWS::Partition', 'aws-cn' ]
+
+Mappings:
+  Accounts:
+    '439314357471': #cn test
+      DBVPC: 'vpc-0c79181af7cd89765'
+      DBSUBNETS: 
+        - 'subnet-0dad55014697057d2'
+        - 'subnet-041e7d289ef8dad5c'
+        - 'subnet-0485180d3dce99136'
+      BASTIANSERVERIP: '10.0.0.0/8' # this is the ip of corporate network
+      BASTIANSERVERSG: 'sg-08ba949e25437ec68' # need to be changed to the real one, once BastianServerSecurityGroup is created
+      APPVPC: 'vpc-0f9779e69a780c25e'
+      APPVPCIP: '10.0.0.0/16'
+      Environment: 'test'
+    '439413396736': #cn prod
+      DBVPC: 'vpc-099901a9739cc760a'
+      DBSUBNETS: 
+        - 'subnet-0e7e5e19511a34721'
+        - 'subnet-03354177e49ac38ef'
+        - 'subnet-035cc1fa75d8d0584'
+      BASTIANSERVERIP: '10.0.0.0/8' # this is the ip of corporate network
+      BASTIANSERVERSG: 'sg-0127e3f882f1de27d' # need to be changed to the real one, once BastianServerSecurityGroup is created
+      APPVPC: 'vpc-01472d21bb792d03e'
+      APPVPCIP: '10.0.0.0/16'
+      Environment: 'prod'
+Outputs:
+  DBSubnetGroup:
+    Description: subnet group name to use when create rds
+    Value: !Ref DBSubnetGroup
+  DBSecurityGroup:
+    Description: security group to use when creating rds
+    Value: !Ref DBSecurityGroup
+  PeerConnection:
+    Description: vpc peer connection between two vpcs
+    Value: !Ref PeerConnection
+  LambdaVpcSecurityGroup:
+    Description: security group to lambda vpc (must be the same vpc as database vpc)
+    Value: !Ref LambdaVpcSecurityGroup
+  BastianServerSecurityGroup:
+    Description: security group to bastian server access db
+    Value: !Ref BastianServerSecurityGroup
+Resources:
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: DB subnet group for antibots webb db
+      DBSubnetGroupName: antibots-db-subnet-group
+      SubnetIds: !FindInMap [ Accounts, !Ref 'AWS::AccountId', DBSUBNETS ]
+      Tags: 
+        - Key: Name
+          Value: antibots-networking-infra
+        - Key: costcenter
+          Value: 104420
+        - Key: classification
+          Value: Bronze
+        - Key: email
+          Value: 'lst-gc-cdn-antibots.admin@nike.com'
+        - Key: nike-application
+          Value: origins-nike-hosted-zone
+        - Key: nike-department
+          Value: 'Web Eng - nike.com Cloud Capability'
+        - Key: nike-domain
+          Value: 'gc-cdn-antibots'
+        - Key: nike-environment
+          Value: !FindInMap [ Accounts, !Ref 'AWS::AccountId', Environment ]
+        - Key: nike-owner
+          Value: 'frank.zhao@nike.com'
+  PeerConnection:
+    Type: AWS::EC2::VPCPeeringConnection
+    Properties:
+      PeerVpcId: !FindInMap [ Accounts, !Ref 'AWS::AccountId', DBVPC ]
+      VpcId: !FindInMap [ Accounts, !Ref 'AWS::AccountId', APPVPC ]
+      Tags: 
+        - Key: Name
+          Value: antibots-networking-infra
+        - Key: costcenter
+          Value: 104420
+        - Key: classification
+          Value: Bronze
+        - Key: email
+          Value: 'lst-gc-cdn-antibots.admin@nike.com'
+        - Key: nike-application
+          Value: origins-nike-hosted-zone
+        - Key: nike-department
+          Value: 'Web Eng - nike.com Cloud Capability'
+        - Key: nike-domain
+          Value: 'gc-cdn-antibots'
+        - Key: nike-environment
+          Value: !FindInMap [ Accounts, !Ref 'AWS::AccountId', Environment ]
+        - Key: nike-owner
+          Value: 'frank.zhao@nike.com'
+  DBSecurityGroup:
+    DependsOn: 
+      - LambdaVpcSecurityGroup
+      - BastianServerSecurityGroup
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: security group for antibot webb db
+      GroupName: antibots-db-sg
+      SecurityGroupEgress: 
+        - CidrIp: 0.0.0.0/0
+          FromPort: -1
+          IpProtocol: -1
+          ToPort: -1
+      SecurityGroupIngress: 
+        - SourceSecurityGroupId: !Ref BastianServerSecurityGroup #!FindInMap [ Accounts, !Ref 'AWS::AccountId', BASTIANSERVERSG ]
+          Description: allow bastian server sg to access db
+          FromPort: 3306
+          ToPort: 3306
+          IpProtocol: tcp
+        - SourceSecurityGroupId: !Ref LambdaVpcSecurityGroup
+          Description: allow lambda to access db
+          FromPort: 3306
+          ToPort: 3306
+          IpProtocol: tcp
+        - CidrIp: !FindInMap [ Accounts, !Ref 'AWS::AccountId', APPVPCIP ]
+          Description: allow backend to access db
+          FromPort: 3306
+          ToPort: 3306
+          IpProtocol: tcp
+      VpcId: !FindInMap [ Accounts, !Ref 'AWS::AccountId', DBVPC ]    
+      Tags: 
+        - Key: Name
+          Value: antibots-networking-infra
+        - Key: costcenter
+          Value: 104420
+        - Key: classification
+          Value: Bronze
+        - Key: email
+          Value: 'lst-gc-cdn-antibots.admin@nike.com'
+        - Key: nike-application
+          Value: origins-nike-hosted-zone
+        - Key: nike-department
+          Value: 'Web Eng - nike.com Cloud Capability'
+        - Key: nike-domain
+          Value: 'gc-cdn-antibots'
+        - Key: nike-environment
+          Value: !FindInMap [ Accounts, !Ref 'AWS::AccountId', Environment ]
+        - Key: nike-owner
+          Value: 'frank.zhao@nike.com'
+  BastianServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: security group for bastian server access webb db
+      GroupName: antibots-db-bastian-server-sg
+      SecurityGroupEgress: 
+        - CidrIp: 0.0.0.0/0
+          FromPort: -1
+          IpProtocol: -1
+          ToPort: -1
+      SecurityGroupIngress: 
+        - CidrIp: !FindInMap [ Accounts, !Ref 'AWS::AccountId', BASTIANSERVERIP ]
+          Description: allow ssh to bastian server from coporate network
+          FromPort: 22
+          ToPort: 22
+          IpProtocol: tcp
+        # - SourceSecurityGroupId: !FindInMap [ Accounts, !Ref 'AWS::AccountId', BASTIANSERVERSG ]
+        #   FromPort: -1
+        #   ToPort: -1
+        #   IpProtocol: -1
+      VpcId: !FindInMap [ Accounts, !Ref 'AWS::AccountId', DBVPC ]    
+      Tags: 
+        - Key: Name
+          Value: antibots-networking-infra
+        - Key: costcenter
+          Value: 104420
+        - Key: classification
+          Value: Bronze
+        - Key: email
+          Value: 'lst-gc-cdn-antibots.admin@nike.com'
+        - Key: nike-application
+          Value: origins-nike-hosted-zone
+        - Key: nike-department
+          Value: 'Web Eng - nike.com Cloud Capability'
+        - Key: nike-domain
+          Value: 'gc-cdn-antibots'
+        - Key: nike-environment
+          Value: !FindInMap [ Accounts, !Ref 'AWS::AccountId', Environment ]
+        - Key: nike-owner
+          Value: 'frank.zhao@nike.com'
+  LambdaVpcSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: security group for lambda vpc
+      GroupName: antibots-lambda-vpc-sg
+      SecurityGroupEgress: 
+        - CidrIp: 0.0.0.0/0
+          FromPort: -1
+          IpProtocol: -1
+          ToPort: -1
+      VpcId: !FindInMap [ Accounts, !Ref 'AWS::AccountId', DBVPC ]    
+      Tags: 
+        - Key: Name
+          Value: antibots-networking-infra
+        - Key: costcenter
+          Value: 104420
+        - Key: classification
+          Value: Bronze
+        - Key: email
+          Value: 'lst-gc-cdn-antibots.admin@nike.com'
+        - Key: nike-application
+          Value: origins-nike-hosted-zone
+        - Key: nike-department
+          Value: 'Web Eng - nike.com Cloud Capability'
+        - Key: nike-domain
+          Value: 'gc-cdn-antibots'
+        - Key: nike-environment
+          Value: !FindInMap [ Accounts, !Ref 'AWS::AccountId', Environment ]
+        - Key: nike-owner
+          Value: 'frank.zhao@nike.com'
